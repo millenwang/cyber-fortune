@@ -271,6 +271,9 @@
         input[type="date"] {
             min-height: 48px;
         }
+        input[type="date"]::-webkit-date-and-time-value {
+            text-align: left;
+        }
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(0.85) sepia(1) hue-rotate(120deg) saturate(4);
             cursor: pointer;
