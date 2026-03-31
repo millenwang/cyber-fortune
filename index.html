@@ -255,6 +255,13 @@
             box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 240, 255, 0.05);
         }
         .form-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+        /* 日期选择器图标高亮 */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.85) sepia(1) hue-rotate(120deg) saturate(4);
+            cursor: pointer;
+            opacity: 1;
+        }
         .form-select option {
             background: #1a1a2e;
             color: var(--text-primary);
@@ -692,14 +699,46 @@
         /* ========== Responsive ========== */
         @media (max-width: 600px) {
             .container { padding: 16px; }
+            .title-section { padding: 30px 0 20px; }
             .input-row { grid-template-columns: 1fr; }
             .zodiac-grid { grid-template-columns: repeat(3, 1fr); }
             .dimension-bars { grid-template-columns: 1fr; }
             .fortune-items { grid-template-columns: repeat(3, 1fr); gap: 8px; }
             .steps-indicator { gap: 10px; }
             .step-connector { width: 30px; }
-            .btn-group { flex-direction: column; }
-            .btn-cyber { width: 100%; }
+
+            /* 答题区域移动端优化 */
+            #panel2 .cyber-card { padding: 20px 16px; }
+            .question-text { font-size: 1rem; margin-bottom: 16px; line-height: 1.6; }
+            .quiz-options { gap: 8px; }
+            .quiz-option {
+                padding: 12px 14px;
+                font-size: 0.88rem;
+                line-height: 1.5;
+            }
+            .quiz-option:hover { transform: none; }
+
+            /* 答题按钮固定在屏幕底部 */
+            #panel2 .btn-group {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                flex-direction: row;
+                gap: 0;
+                z-index: 100;
+                margin: 0;
+                padding: 0;
+            }
+            #panel2 .btn-group .btn-cyber {
+                width: 50%;
+                border-radius: 0;
+                padding: 14px 12px;
+                font-size: 0.8rem;
+                letter-spacing: 1px;
+            }
+            /* 给固定按钮留出底部空间 */
+            #panel2 .cyber-card { padding-bottom: 70px; }
         }
     </style>
 </head>
