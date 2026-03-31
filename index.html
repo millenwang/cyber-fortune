@@ -250,6 +250,7 @@
             padding: 14px 16px;
             max-width: 100%;
             min-width: 0;
+            min-height: 48px;
             box-sizing: border-box;
             background: rgba(0, 240, 255, 0.05);
             border: 1px solid rgba(0, 240, 255, 0.2);
@@ -271,6 +272,9 @@
             overflow: hidden;
             text-overflow: ellipsis;
             flex-shrink: 1;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
         }
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(0.85) sepia(1) hue-rotate(120deg) saturate(4);
