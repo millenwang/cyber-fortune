@@ -866,10 +866,13 @@
 
                 <div class="form-group">
                     <label class="form-label">出生日期</label>
-                    <div class="input-row">
-                        <input type="date" class="form-input" id="birthDate" placeholder="选择出生日期">
-                        <select class="form-select" id="birthTime">
-                            <option value="">选择出生时段</option>
+                    <input type="date" class="form-input" id="birthDate" placeholder="选择出生日期">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">出生时段（可选）</label>
+                    <select class="form-select" id="birthTime">
+                        <option value="">选择出生时段</option>
                             <option value="dawn">黎明 (05:00-07:00)</option>
                             <option value="morning">上午 (07:00-11:00)</option>
                             <option value="noon">中午 (11:00-13:00)</option>
@@ -878,8 +881,7 @@
                             <option value="night">夜晚 (19:00-23:00)</option>
                             <option value="midnight">深夜 (23:00-01:00)</option>
                             <option value="wee">凌晨 (01:00-05:00)</option>
-                        </select>
-                    </div>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -926,7 +928,7 @@
 
                 <div class="btn-group">
                     <button class="btn-cyber" onclick="goToStep(2)">
-                        开始测试 →
+                        翻开星簿 →
                     </button>
                 </div>
             </div>
@@ -1251,7 +1253,7 @@
         if (step === 2) {
             const name = document.getElementById('userName').value.trim();
             const birth = document.getElementById('birthDate').value;
-            if (!name) { showToast('请输入你的名字或代号'); return; }
+            if (!name) { showToast('请输入姓名或昵称'); return; }
             if (!birth) { showToast('请选择你的出生日期'); return; }
             if (!selectedZodiac) { showToast('请选择你的星座'); return; }
             userData = { name, birth, birthTime: document.getElementById('birthTime').value };
