@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星命之簿</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* ========== CSS Variables ========== */
+        :root {
+            --cyan: #00f0ff;
+            --magenta: #ff00e5;
+            --yellow: #ffe600;
+            --bg-dark: #0a0a12;
+            --bg-card: rgba(10, 10, 25, 0.85);
+            --border-glow: rgba(0, 240, 255, 0.3);
+            --text-primary: #e0e6ff;
+            --text-dim: #7a82a6;
+        }
+
+        /* ========== Reset & Base ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ========== Animated Background ========== */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 240, 255, 0.015) 2px,
+                rgba(0, 240, 255, 0.015) 4px
+            );
+            z-index: 1;
+            pointer-events: none;
+            animation: scanMove 8s linear infinite;
+        }
+        @keyframes scanMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ========== Main Container ========== */
+        .container {
+            position: relative;
+            z-index: 10;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* ========== Glitch Title ========== */
+        .title-section {
+            text-align: center;
+            padding: 60px 0 40px;
+        }
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 900;
+            color: var(--cyan);
+            text-shadow:
+                0 0 10px var(--cyan),
+                0 0 40px rgba(0, 240, 255, 0.4),
+                0 0 80px rgba(0, 240, 255, 0.2);
+            position: relative;
+            animation: glitch 3s infinite;
+            letter-spacing: 4px;
+        }
+        .subtitle {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+            color: var(--magenta);
+            margin-top: 12px;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            text-shadow: 0 0 15px var(--magenta);
+        }
+
+        @keyframes glitch {
+            0%, 95%, 100% { transform: translate(0); }
+            96% { transform: translate(-2px, 1px); filter: hue-rotate(90deg); }
+            97% { transform: translate(2px, -1px); filter: hue-rotate(-90deg); }
+            98% { transform: translate(-1px, -1px); }
+            99% { transform: translate(1px, 2px); filter: hue-rotate(45deg); }
+        }
+
+        /* ========== Step Indicator ========== */
+        .steps-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .step-dot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.3;
+            transition: all 0.5s ease;
+        }
+        .step-dot.active { opacity: 1; }
+        .step-dot.done { opacity: 0.6; }
+        .step-circle {
+            width: 40px; height: 40px;
+            border: 2px solid var(--cyan);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: all 0.5s ease;
+        }
+        .step-dot.active .step-circle {
+            background: var(--cyan);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0, 240, 255, 0.3);
+        }
+        .step-dot.done .step-circle {
+            background: rgba(0, 240, 255, 0.2);
+            border-color: var(--cyan);
+        }
+        .step-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+        .step-dot.active .step-label { color: var(--cyan); }
+        .step-connector {
+            width: 60px;
+            height: 2px;
+            background: rgba(0, 240, 255, 0.15);
+            align-self: center;
+            position: relative;
+        }
+        .step-connector::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%; width: 0%;
+            background: var(--cyan);
+            transition: width 0.5s ease;
+        }
+        .step-connector.done::after { width: 100%; }
+
+        /* ========== Panel ========== */
+        .panel {
+            display: none;
+            animation: fadeSlideIn 0.6s ease;
+        }
+        .panel.active { display: block; }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ========== Card ========== */
+        .cyber-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 4px;
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        .cyber-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), transparent);
+        }
+        .cyber-card::after {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 30px; height: 30px;
+            border-top: 2px solid var(--cyan);
+            border-right: 2px solid var(--cyan);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--cyan);
+            margin-bottom: 24px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+
+        /* ========== Form Elements ========== */
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 2px;
+            color: var(--text-primary);
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus, .form-select:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 240, 255, 0.05);
+        }
+        .form-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+        .form-select option {
+            background: #1a1a2e;
+            color: var(--text-primary);
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .zodiac-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .zodiac-btn {
+            padding: 12px 8px;
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 2px;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .zodiac-btn:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 240, 255, 0.08);
+        }
+        .zodiac-btn.selected {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 240, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+        .zodiac-symbol {
+            display: block;
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+
+        /* ========== Buttons ========== */
+        .btn-cyber {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 40px;
+            background: transparent;
+            border: 2px solid var(--cyan);
+            color: var(--cyan);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-cyber::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.15), transparent);
+            transition: left 0.5s ease;
+        }
+        .btn-cyber:hover::before { left: 100%; }
+        .btn-cyber:hover {
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3), inset 0 0 30px rgba(0, 240, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        .btn-cyber:active { transform: translateY(0); }
+
+        .btn-magenta {
+            border-color: var(--magenta);
+            color: var(--magenta);
+        }
+        .btn-magenta:hover {
+            background: rgba(255, 0, 229, 0.1);
+            box-shadow: 0 0 30px rgba(255, 0, 229, 0.3), inset 0 0 30px rgba(255, 0, 229, 0.1);
+        }
+        .btn-magenta::before {
+            background: linear-gradient(90deg, transparent, rgba(255, 0, 229, 0.15), transparent);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            margin-top: 32px;
+            justify-content: center;
+        }
+
+        /* ========== MBTI Quiz ========== */
+        .quiz-progress {
+            margin-bottom: 24px;
+        }
+        .progress-bar-container {
+            height: 4px;
+            background: rgba(0, 240, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--cyan), var(--magenta));
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px var(--cyan);
+        }
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-family: 'Orbitron', monospace;
+        }
+
+        .quiz-dimension {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 1px solid;
+            border-radius: 2px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+        .dim-EI { border-color: #ff6b6b; color: #ff6b6b; }
+        .dim-SN { border-color: #ffd93d; color: #ffd93d; }
+        .dim-TF { border-color: #6bcb77; color: #6bcb77; }
+        .dim-JP { border-color: #4d96ff; color: #4d96ff; }
+
+        .question-text {
+            font-size: 1.15rem;
+            font-weight: 400;
+            line-height: 1.7;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .quiz-option {
+            padding: 16px 20px;
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .quiz-option:hover {
+            border-color: var(--cyan);
+            background: rgba(0, 240, 255, 0.08);
+            transform: translateX(5px);
+        }
+        .quiz-option.selected {
+            border-color: var(--magenta);
+            background: rgba(255, 0, 229, 0.1);
+            box-shadow: 0 0 20px rgba(255, 0, 229, 0.15);
+        }
+
+        /* ========== Loading Animation ========== */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(10, 10, 18, 0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .loading-overlay.active { display: flex; }
+
+        .loading-hex {
+            width: 80px; height: 80px;
+            position: relative;
+        }
+        .loading-hex::before, .loading-hex::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 2px solid var(--cyan);
+            border-radius: 50%;
+            animation: loadSpin 1.5s linear infinite;
+        }
+        .loading-hex::after {
+            border-color: var(--magenta);
+            animation-direction: reverse;
+            animation-duration: 1s;
+        }
+        @keyframes loadSpin {
+            0% { transform: rotate(0deg) scale(1); opacity: 1; }
+            50% { transform: rotate(180deg) scale(0.6); opacity: 0.5; }
+            100% { transform: rotate(360deg) scale(1); opacity: 1; }
+        }
+
+        .loading-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            color: var(--cyan);
+            letter-spacing: 4px;
+            animation: textPulse 1s ease-in-out infinite;
+        }
+        @keyframes textPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .loading-messages {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 2;
+        }
+
+        /* ========== Result Page ========== */
+        .result-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .result-mbti-type {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(3rem, 10vw, 5rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .result-nickname {
+            font-size: 1.1rem;
+            color: var(--magenta);
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(255, 0, 229, 0.5);
+        }
+
+        .result-section {
+            margin-bottom: 28px;
+        }
+        .result-section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.8rem;
+            color: var(--cyan);
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+            text-transform: uppercase;
+        }
+        .result-text {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: var(--text-primary);
+        }
+
+        .dimension-bars {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .dim-bar-item {
+            padding: 12px;
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            border-radius: 2px;
+        }
+        .dim-bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+        .dim-bar-track {
+            height: 6px;
+            background: rgba(0, 240, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .dim-bar-value {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1.5s ease;
+        }
+
+        .fortune-card {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.08), rgba(255, 0, 229, 0.08));
+            border: 1px solid rgba(255, 0, 229, 0.3);
+            border-radius: 2px;
+            padding: 24px;
+            margin-bottom: 28px;
+            position: relative;
+        }
+        .fortune-card::before {
+            content: '🔮';
+            position: absolute;
+            top: -12px; left: 20px;
+            font-size: 1.5rem;
+        }
+        .fortune-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85rem;
+            color: var(--magenta);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            padding-top: 4px;
+        }
+        .fortune-items {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .fortune-item {
+            text-align: center;
+        }
+        .fortune-item-label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .fortune-item-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .fortune-excellent { color: #ff6b6b; }
+        .fortune-great { color: var(--magenta); }
+        .fortune-good { color: var(--yellow); }
+        .fortune-ok { color: var(--cyan); }
+
+        .compatibility-section {
+            margin-bottom: 28px;
+        }
+        .compat-pair {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.08);
+            border-radius: 2px;
+        }
+        .compat-type {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            width: 40px;
+            text-align: center;
+        }
+        .compat-desc {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .compat-tag {
+            margin-left: auto;
+            padding: 4px 10px;
+            border-radius: 2px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .tag-soulmate { background: rgba(255, 0, 229, 0.2); color: var(--magenta); border: 1px solid var(--magenta); }
+        .tag-friend { background: rgba(0, 240, 255, 0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+        .tag-work { background: rgba(255, 230, 0, 0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+
+        .cyber-horoscope {
+            padding: 20px;
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 2px;
+            margin-bottom: 28px;
+            background: rgba(0, 240, 255, 0.02);
+        }
+        .horoscope-symbol {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+        .horoscope-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85rem;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .analysis-tip {
+            padding: 16px 20px;
+            border-left: 3px solid var(--cyan);
+            background: rgba(0, 240, 255, 0.03);
+            font-size: 0.85rem;
+            line-height: 1.7;
+            color: var(--text-dim);
+            margin-bottom: 28px;
+        }
+
+        /* ========== Toast ========== */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(255, 0, 229, 0.15);
+            border: 1px solid var(--magenta);
+            color: var(--magenta);
+            padding: 12px 24px;
+            border-radius: 2px;
+            font-size: 0.85rem;
+            z-index: 2000;
+            transition: transform 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ========== Responsive ========== */
+        @media (max-width: 600px) {
+            .container { padding: 16px; }
+            .input-row { grid-template-columns: 1fr; }
+            .zodiac-grid { grid-template-columns: repeat(3, 1fr); }
+            .dimension-bars { grid-template-columns: 1fr; }
+            .fortune-items { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .steps-indicator { gap: 10px; }
+            .step-connector { width: 30px; }
+            .btn-group { flex-direction: column; }
+            .btn-cyber { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <div class="scanline"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loading">
+        <div class="loading-hex"></div>
+        <div class="loading-text">ANALYZING...</div>
+        <div class="loading-messages" id="loadingMsg"></div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <div class="container">
+        <!-- Title -->
+        <div class="title-section">
+            <div class="title">星命之簿</div>
+            <div class="subtitle">星 命 解 码 · 性 格 分 析 系 统</div>
+        </div>
+
+        <!-- Steps -->
+        <div class="steps-indicator">
+            <div class="step-dot active" id="stepDot1">
+                <div class="step-circle">01</div>
+                <div class="step-label">输入信息</div>
+            </div>
+            <div class="step-connector" id="conn1"></div>
+            <div class="step-dot" id="stepDot2">
+                <div class="step-circle">02</div>
+                <div class="step-label">MBTI测试</div>
+            </div>
+            <div class="step-connector" id="conn2"></div>
+            <div class="step-dot" id="stepDot3">
+                <div class="step-circle">03</div>
+                <div class="step-label">命运解码</div>
+            </div>
+        </div>
+
+        <!-- Panel 1: Input -->
+        <div class="panel active" id="panel1">
+            <div class="cyber-card">
+                <div class="card-title">// PERSONAL DATA INPUT</div>
+
+                <div class="form-group">
+                    <label class="form-label">姓名 / 代号</label>
+                    <input type="text" class="form-input" id="userName" placeholder="输入你的名字或代号..." maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">出生日期</label>
+                    <div class="input-row">
+                        <input type="date" class="form-input" id="birthDate" value="2000-01-01">
+                        <select class="form-select" id="birthTime">
+                            <option value="">选择出生时段</option>
+                            <option value="dawn">黎明 (05:00-07:00)</option>
+                            <option value="morning">上午 (07:00-11:00)</option>
+                            <option value="noon">中午 (11:00-13:00)</option>
+                            <option value="afternoon">下午 (13:00-17:00)</option>
+                            <option value="dusk">黄昏 (17:00-19:00)</option>
+                            <option value="night">夜晚 (19:00-23:00)</option>
+                            <option value="midnight">深夜 (23:00-01:00)</option>
+                            <option value="wee">凌晨 (01:00-05:00)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">选择你的星座</label>
+                    <div class="zodiac-grid" id="zodiacGrid">
+                        <button class="zodiac-btn" data-zodiac="aries" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♈</span>白羊座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="taurus" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♉</span>金牛座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="gemini" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♊</span>双子座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="cancer" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♋</span>巨蟹座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="leo" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♌</span>狮子座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="virgo" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♍</span>处女座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="libra" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♎</span>天秤座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="scorpio" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♏</span>天蝎座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="sagittarius" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♐</span>射手座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="capricorn" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♑</span>摩羯座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="aquarius" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♒</span>水瓶座
+                        </button>
+                        <button class="zodiac-btn" data-zodiac="pisces" onclick="selectZodiac(this)">
+                            <span class="zodiac-symbol">♓</span>双鱼座
+                        </button>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-cyber" onclick="goToStep(2)">
+                        INITIATE SCAN →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 2: MBTI Quiz -->
+        <div class="panel" id="panel2">
+            <div class="cyber-card">
+                <div class="card-title">// MBTI NEURAL SCAN</div>
+                <div class="quiz-progress">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="quizProgress" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="quizDimLabel">维度 E/I</span>
+                        <span id="quizCount">0 / 22</span>
+                        <span id="quizAnswered" style="color:var(--magenta);font-family:'Orbitron',monospace;font-size:0.7rem"></span>
+                    </div>
+                </div>
+
+                <div id="quizDimensionTag" class="quiz-dimension dim-EI">E / I · 能量方向</div>
+
+                <div class="question-text" id="questionText"></div>
+
+                <div class="quiz-options" id="quizOptions"></div>
+
+                <div class="btn-group">
+                    <button class="btn-cyber" id="btnPrevQuiz" onclick="prevQuestion()" style="display:none;">← 上一题</button>
+                    <button class="btn-cyber btn-magenta" id="btnNextQuiz" onclick="nextQuestion()" style="display:none;">
+                        NEXT SCAN →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 3: Result -->
+        <div class="panel" id="panel3">
+            <div class="cyber-card">
+                <div class="result-header">
+                    <div class="result-mbti-type" id="resultType">INTJ</div>
+                    <div class="result-nickname" id="resultNickname">建筑师</div>
+                </div>
+
+                <div class="dimension-bars" id="dimBars"></div>
+
+                <div class="result-section">
+                    <div class="result-section-title">// 性格核心解码</div>
+                    <div class="result-text" id="resultDesc"></div>
+                </div>
+
+                <div class="cyber-horoscope" id="horoscopeCard">
+                    <div class="horoscope-symbol" id="horoscopeSymbol">♌</div>
+                    <div class="horoscope-name" id="horoscopeName">LEO · 狮子座</div>
+                    <div class="result-text" id="horoscopeDesc"></div>
+                </div>
+
+                <div class="fortune-card">
+                    <div class="fortune-title">// 今日赛博运势</div>
+                    <div class="fortune-items" id="fortuneItems"></div>
+                </div>
+
+                <div class="result-section">
+                    <div class="result-section-title">// 灵魂契合指数</div>
+                    <div class="compatibility-section" id="compatSection"></div>
+                </div>
+
+                <div class="analysis-tip" id="analysisTip"></div>
+
+                <div class="result-section">
+                    <div class="result-section-title">// 赛博命理建议</div>
+                    <div class="result-text" id="resultAdvice"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-cyber" onclick="restart()">REBOOT SYSTEM</button>
+                    <button class="btn-cyber btn-magenta" onclick="shareResult()">SHARE DESTINY</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ========== State ==========
+    let currentStep = 1;
+    let currentQuestion = 0;
+    let selectedZodiac = null;
+    let answers = [];
+    let userData = {};
+
+    // ========== Zodiac Data ==========
+    const zodiacData = {
+        aries: { symbol: '♈', name: 'ARIES', cnName: '白羊座', dates: '3/21-4/19', element: '火', trait: '热情冲动，天生领袖' },
+        taurus: { symbol: '♉', name: 'TAURUS', cnName: '金牛座', dates: '4/20-5/20', element: '土', trait: '稳重务实，品味独到' },
+        gemini: { symbol: '♊', name: 'GEMINI', cnName: '双子座', dates: '5/21-6/21', element: '风', trait: '思维敏捷，多才多艺' },
+        cancer: { symbol: '♋', name: 'CANCER', cnName: '巨蟹座', dates: '6/22-7/22', element: '水', trait: '情感丰富，守护家园' },
+        leo: { symbol: '♌', name: 'LEO', cnName: '狮子座', dates: '7/23-8/22', element: '火', trait: '自信耀眼，慷慨大方' },
+        virgo: { symbol: '♍', name: 'VIRGO', cnName: '处女座', dates: '8/23-9/22', element: '土', trait: '细致完美，分析力强' },
+        libra: { symbol: '♎', name: 'LIBRA', cnName: '天秤座', dates: '9/23-10/23', element: '风', trait: '优雅和谐，追求公正' },
+        scorpio: { symbol: '♏', name: 'SCORPIO', cnName: '天蝎座', dates: '10/24-11/22', element: '水', trait: '深邃神秘，意志坚定' },
+        sagittarius: { symbol: '♐', name: 'SAGITTARIUS', cnName: '射手座', dates: '11/23-12/21', element: '火', trait: '自由洒脱，追求真理' },
+        capricorn: { symbol: '♑', name: 'CAPRICORN', cnName: '摩羯座', dates: '12/22-1/19', element: '土', trait: '野心勃勃，坚忍不拔' },
+        aquarius: { symbol: '♒', name: 'AQUARIUS', cnName: '水瓶座', dates: '1/20-2/18', element: '风', trait: '独立创新，人道主义' },
+        pisces: { symbol: '♓', name: 'PISCES', cnName: '双鱼座', dates: '2/19-3/20', element: '水', trait: '浪漫梦幻，共情力强' }
+    };
+
+    // ========== MBTI Questions (3 per dimension) ==========
+    const questions = [
+        // E/I dimension
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '在一个热闹的派对上，你更可能...',
+          a: [
+            { text: '主动和不同圈子的人聊天，享受成为焦点的感觉', value: 'E' },
+            { text: '找一两个熟悉的朋友在角落安静聊天', value: 'I' }
+          ]
+        },
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '周末最理想的充电方式是？',
+          a: [
+            { text: '约朋友出去玩、聚餐、参加活动', value: 'E' },
+            { text: '一个人看书、打游戏、或者发呆', value: 'I' }
+          ]
+        },
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '面对一个新项目，你更倾向于...',
+          a: [
+            { text: '召集团队讨论，集思广益', value: 'E' },
+            { text: '先自己思考清楚，再做决定', value: 'I' }
+          ]
+        },
+        // S/N dimension
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '你更关注的是...',
+          a: [
+            { text: '当下的实际情况和具体细节', value: 'S' },
+            { text: '未来的可能性和背后的含义', value: 'N' }
+          ]
+        },
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '阅读一本书时，你更偏好...',
+          a: [
+            { text: '有明确的步骤指导、实用性强', value: 'S' },
+            { text: '充满想象力和隐喻、有深度', value: 'N' }
+          ]
+        },
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '在描述一件事情时，你通常会...',
+          a: [
+            { text: '按照时间顺序，讲清事实经过', value: 'S' },
+            { text: '跳过细节，直接讲核心观点和感悟', value: 'N' }
+          ]
+        },
+        // T/F dimension
+        { dim: 'TF', label: 'T / F · 决策方式', cls: 'dim-TF',
+          q: '朋友因为感情问题来找你倾诉，你会...',
+          a: [
+            { text: '帮他理性分析问题，列出利弊', value: 'T' },
+            { text: '先安慰对方的情绪，给予情感支持', value: 'F' }
+          ]
+        },
+        { dim: 'TF', label: 'T / F · 决策方式', cls: 'dim-TF',
+          q: '做一个重要决定时，你更依赖...',
+          a: [
+            { text: '逻辑分析和客观数据', value: 'T' },
+            { text: '内心的感受和价值观', value: 'F' }
+          ]
+        },
+        { dim: 'TF', label: 'T / F · 决策方式', cls: 'dim-TF',
+          q: '团队中出现了意见分歧，你会...',
+          a: [
+            { text: '坚持最合理的方案，对事不对人', value: 'T' },
+            { text: '考虑每个人的感受，寻求折中方案', value: 'F' }
+          ]
+        },
+        // J/P dimension
+        { dim: 'JP', label: 'J / P · 生活态度', cls: 'dim-JP',
+          q: '对于旅行，你的风格更像是...',
+          a: [
+            { text: '提前规划好每一天的行程和住宿', value: 'J' },
+            { text: '只定大方向，到了再看情况随机应变', value: 'P' }
+          ]
+        },
+        { dim: 'JP', label: 'J / P · 生活态度', cls: 'dim-JP',
+          q: '你的工作桌面通常是...',
+          a: [
+            { text: '整洁有序，东西都在固定位置', value: 'J' },
+            { text: '有点乱但我知道东西在哪', value: 'P' }
+          ]
+        },
+        { dim: 'JP', label: 'J / P · 生活态度', cls: 'dim-JP',
+          q: '关于deadline（截止日期），你通常会...',
+          a: [
+            { text: '提前完成，不喜欢最后时刻赶工', value: 'J' },
+            { text: '截止日期前的压力让我效率最高', value: 'P' }
+          ]
+        },
+        // ===== 追加10道题目 =====
+        // E/I dimension
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '长时间独处之后，你的状态通常是...',
+          a: [
+            { text: '开始有点无聊，想赶紧找人聊聊天', value: 'E' },
+            { text: '感觉电量充满，非常满足和舒适', value: 'I' }
+          ]
+        },
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '面对一个刚认识的人，你通常会...',
+          a: [
+            { text: '主动搭话，很快就能聊得热火朝天', value: 'E' },
+            { text: '等待对方先开口，观察一段时间再说', value: 'I' }
+          ]
+        },
+        // S/N dimension
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '在工作中，你更看重...',
+          a: [
+            { text: '切实可行的经验和经过验证的方法', value: 'S' },
+            { text: '创新的想法和突破性的理论框架', value: 'N' }
+          ]
+        },
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '学习一项新技能时，你的方式更接近...',
+          a: [
+            { text: '跟着教程一步步实操，从基础练起', value: 'S' },
+            { text: '先搞懂原理和整体框架，再动手尝试', value: 'N' }
+          ]
+        },
+        // T/F dimension
+        { dim: 'TF', label: 'T / F · 决策方式', cls: 'dim-TF',
+          q: '当你的观点和好朋友发生冲突时，你会...',
+          a: [
+            { text: '坚持自己的立场，就事论事地讨论', value: 'T' },
+            { text: '考虑对方的感受，可能选择退让以维护关系', value: 'F' }
+          ]
+        },
+        { dim: 'TF', label: 'T / F · 决策方式', cls: 'dim-TF',
+          q: '你觉得一段好的人际关系最重要的是...',
+          a: [
+            { text: '相互尊重、诚实透明、高效沟通', value: 'T' },
+            { text: '彼此理解、情感共鸣、温暖陪伴', value: 'F' }
+          ]
+        },
+        // J/P dimension
+        { dim: 'JP', label: 'J / P · 生活态度', cls: 'dim-JP',
+          q: '当计划突然被打乱时，你的第一反应是...',
+          a: [
+            { text: '有点焦虑，立刻开始重新规划', value: 'J' },
+            { text: '无所谓，顺其自然看看能发现什么', value: 'P' }
+          ]
+        },
+        { dim: 'JP', label: 'J / P · 生活态度', cls: 'dim-JP',
+          q: '你更欣赏的生活态度是...',
+          a: [
+            { text: '有目标、有计划、有节奏，一切尽在掌握', value: 'J' },
+            { text: '随性、开放、拥抱不确定性，生活充满惊喜', value: 'P' }
+          ]
+        },
+        // 跨维度综合题
+        { dim: 'EI', label: 'E / I · 能量方向', cls: 'dim-EI',
+          q: '工作遇到难题时，你更倾向于...',
+          a: [
+            { text: '找同事讨论，碰撞出新的思路', value: 'E' },
+            { text: '自己查资料、思考，直到想通为止', value: 'I' }
+          ]
+        },
+        { dim: 'SN', label: 'S / N · 信息获取', cls: 'dim-SN',
+          q: '看一部电影后和朋友讨论，你更可能聊...',
+          a: [
+            { text: '剧情逻辑、画面质感、演员演技', value: 'S' },
+            { text: '导演想表达的隐喻、角色象征、哲学内涵', value: 'N' }
+          ]
+        }
+    ];
+
+    // ========== MBTI Type Data ==========
+    const mbtiData = {
+        INTJ: { nickname: '策略大师', desc: '你是一个独立思考的战略家，拥有超强的洞察力和规划能力。你的大脑就像一台高速运转的量子计算机，能在复杂的信息中找到最优解。你看透一切虚伪和低效，追求系统性的完美。对你来说，这个世界就是一个巨大的棋盘，而你永远是那个提前十步布局的棋手。你的内心世界丰富而深邃，虽然不善表达情感，但一旦认定的人和事，你会投入百分之百的忠诚。', advice: '不要让完美主义成为行动的绊脚石。偶尔放下理性的铠甲，让感性流淌一下，你会发现世界的温度。学会对不完美的事物保持开放，有时候"足够好"就是最好的策略。' },
+        INTP: { nickname: '逻辑黑客', desc: '你是一台永不停歇的思考机器，对知识有着无法满足的渴望。你的思维如同互联网一般四通八达，能在看似无关的概念之间建立令人惊叹的联系。你是天生的解构主义者，喜欢把一切事物拆解到原子级别再重新组装。对你来说，最有吸引力的事莫过于发现一个别人从未注意到的逻辑漏洞。你的内心住着一个哲学家和一个工程师，不断在"为什么"和"怎么做到"之间切换。', advice: '想法再好也需要落地。试着把你那些天才般的想法变成现实，哪怕先做一个粗糙的原型。也不要忽视社交的力量——你的想法需要传播才能产生价值。' },
+        ENTJ: { nickname: '系统架构师', desc: '你是天生的领袖和战略指挥官，拥有将混乱变为秩序的超能力。你的大脑就像一个中央处理器，能够同时管理多个复杂的系统。你看到的不只是现在，而是未来五年、十年的发展路径。你追求效率和结果，讨厌一切形式的浪费和无能。在你眼里，没有解决不了的问题，只有还没找到的方法。你的气场强大而有磁性，别人会不自觉地追随你的节奏。', advice: '不是每个人都能跟上你的节奏。学会放慢脚步倾听他人的声音，有时候最伟大的领导力不是指挥，而是服务。别忘了给自己充电——你不是永动机。' },
+        ENTP: { nickname: '混沌发明家', desc: '你是一个行走的灵感引擎，大脑里装着无数个正在孵化的项目。你的思维如同布朗运动一般不可预测，但恰恰是这种不可预测性让你总能提出令人眼前一亮的方案。你天生就不满足于现状，看到规则就想打破它，看到瓶颈就想突破它。你是辩论场上的王者，能在瞬间从对手的逻辑中找到破绽。你的魅力在于永远充满好奇和热情，让你身边的人也忍不住跟着你的节奏跳动。', advice: '专注是你最大的挑战，也是你最需要培养的能力。试着把100%的热情投入到1-2个真正重要的方向上。学会完成而不仅是开始，那才是创造力的真正体现。' },
+        INFJ: { nickname: '预言编织者', desc: '你是最稀有的人格类型之一，拥有近乎超自然的洞察力。你能读懂空气中的情绪波动，看到人们隐藏在表面之下的真实想法。你的内心世界如同一片深邃的星空，充满了对人类命运的思考和对理想世界的渴望。你不只是看到事物的现状，而是看到它们应该成为的样子。你的温柔是一种力量，你的沉默是一种深度。当你说出那些经过深思熟虑的话时，总能直击人心。', advice: '不要试图拯救所有人，这会耗尽你。学会区分哪些是你的责任，哪些是别人的课题。定期给自己创造独处和恢复能量的空间，你不需要为所有人的情绪负责。' },
+        INFP: { nickname: '灵魂炼金师', desc: '你是一个生活在理想与现实的裂缝中的诗人。你的内心世界比任何科幻小说都要精彩和丰富。你拥有一种独特的超能力——共情。你能感受到这个世界的美好与悲伤，并把它们转化成令人动容的创作。你的价值观如同北极星一般坚定，即使在最黑暗的时刻也不会动摇。你相信每个人都有自己独特的价值，而你的使命就是帮助人们看到自己身上的光芒。', advice: '你的理想主义是礼物，但也要学会与不完美的现实共存。不要让对完美的追求阻止你迈出第一步。建立一些日常的锚点——简单的习惯能帮你在大风大浪中保持平衡。' },
+        ENFJ: { nickname: '心灵导航员', desc: '你是天生的激励者和精神领袖。你拥有一种罕见的才华——能让每个人都觉得自己被看见、被理解、被重视。你就像人形WiFi，走到哪里都能连接到各种各样的人。你的热情是有感染力的，你的话语是有力量的，你的存在本身就是一种鼓励。你不只是管理团队，你是引领灵魂。在你身边，每个人都想要成为更好的自己。你是混乱世界中的定海神针，黑暗中的提灯者。', advice: '在照亮别人的同时，别忘了自己也需要光。学会说"不"，你不是所有人的救世主。有时候，你最大的贡献就是先照顾好自己。' },
+        ENFP: { nickname: '频率共振器', desc: '你是一个行走的能量场，走到哪里就把快乐和创意带到哪里。你的大脑就像一个烟花秀，每天都有新的灵感和想法绽放。你看到的世界充满了可能性和色彩，一扇旧窗户在你眼里就是一幅画，一个陌生人的微笑就能让你开心一整天。你天生就能和不同类型的人建立深层连接，不是因为你会讨好别人，而是因为你真正对每个人的故事感到好奇。', advice: '你的热情是你的超能力，但也是你的克星。当新鲜感消退时，学会在平淡中发现美。不要逃避深层的关系——表面的热闹填不满内心的空虚。' },
+        ISTJ: { nickname: '数据守护者', desc: '你是这个混乱世界中最可靠的存在。你的记忆力令人叹为观止，你的执行力让所有PPT计划表都自愧不如。你相信事实胜于雄辩，行动胜于空谈。你的世界观建立在坚实的经验和数据之上，每一步都经过验证。你是团队的基石——当风暴来临时，所有人都会看向你的方向。你的可靠不是无聊，而是一种经过千锤百炼后的优雅。你用行动证明了什么叫"说到做到"。', advice: '规则是工具，不是枷锁。有时候最好的解决方案不在手册里，而在你直觉的某个角落。尝试拥抱变化，世界在快速进化，你的适应力比你想象的更强。' },
+        ISFJ: { nickname: '温暖防火墙', desc: '你是那种默默付出不求回报的人。你的关怀如同暗夜里的暖光，不动声色却温暖人心。你拥有超强的细节感知力，能注意到别人忽略的所有小细节——谁喜欢什么口味的咖啡，谁最近心情不太好。你是社交网络中的隐连接器，虽然不在聚光灯下，但所有坚固的关系都离不开你的维系。你的付出是一种信仰，你的坚持是一种力量。', advice: '你的善良不应该成为别人理所当然的索取。学会为自己发声，设立清晰的边界。照顾别人之前先照顾自己——一杯空杯子倒不出水来。' },
+        ESTJ: { nickname: '秩序引擎', desc: '你是效率的化身，规则的捍卫者。你天生就知道如何把混乱变得井井有条。你的执行力像一台精密的瑞士手表，分秒不差。你相信公平、责任和努力工作，这些不是空洞的口号，而是你活出来的准则。在危机时刻，你是第一个站出来指挥调度的人。你用实力赢得了尊重，用行动证明了自己的价值。', advice: '不是所有的变化都是威胁。试着用好奇心代替防御心去面对新事物。也请记住，效率不是唯一的衡量标准——有时"浪费"在人际上的时间，反而是最有价值的投资。' },
+        ESFJ: { nickname: '和谐引擎', desc: '你是社交生态系统中不可或缺的物种。你天生就知道如何让每个人感到舒服和被重视。你组织聚会从不冷场，你维护关系从不懈怠，你记住每个人的重要日子。你是那个在人群中微笑着说"你好吗？"然后真正认真听答案的人。你的存在让这个世界变得更加温暖和连接。在你的字典里，没有人是陌生人——只有还没成为朋友的人。', advice: '不要因为害怕冲突就压抑自己的真实想法。健康的关系建立在真实之上，而不是一味地讨好。学会享受独处，你不需要通过别人的认可来定义自己的价值。' },
+        ISTP: { nickname: '暗影工匠', desc: '你是一个沉默的天才，一个用行动而非语言来定义自己的实践者。你的双手和大脑之间有着几乎魔法般的默契——给你一个工具，你能解决几乎所有问题。你冷静、理性、适应力强，在危机中反而更加清醒。你不追求聚光灯，但你的实力让所有人在关键时刻都依赖你。你的内心世界如同一台精密的机械，每一齿轮都在完美运转。', advice: '你的独立是你的力量，但适当的表达能让你走得更远。不要总是把想法藏在心里——分享你的见解，别人需要你的智慧。也试着体验一下情感表达的深度，那是一个全新的维度。' },
+        ISFP: { nickname: '量子艺术家', desc: '你是一个用生命本身来表达美的灵魂。你的审美不是学来的，而是刻在DNA里的。你能在最平凡的场景中发现诗意，在混乱中找到和谐。你活在当下，每个瞬间对你来说都是独一无二的。你不追随潮流，因为你本身就是潮流。你的创造力如同一口深井，表面平静，下面涌动着无尽的灵感。你用行动而非言语来表达对这个世界的爱。', advice: '你的敏感是天赋，但也要学会区分哪些声音值得回应。不要害怕规划——适当的结构不会束缚你的创造力，反而能帮你更好地实现它。你的声音值得被更多人听到。' },
+        ESTP: { nickname: '极限执行者', desc: '你是一个肾上腺素成瘾的行动派，生活在快车道上。你的反应速度和决策力如同赛车手的直觉——在别人还在分析的时候，你已经冲过了终点线。你天生知道如何在当下做出最优选择，你的身体就是你最强大的工具。你充满魅力和说服力，即使反对你的人也会被你的能量所吸引。你把每一天都当成一场冒险，而人生就是一场没有剧本的电影。', advice: '冲动是你的引擎，但刹车也很重要。在享受当下的同时，也要为未来做一些铺垫。深度思考不是你的敌人——当你把行动力和思考力结合起来时，你将势不可挡。' },
+        ESFP: { nickname: '能量振荡器', desc: '你是人群中自带BGM的存在。你的能量如同DJ台上的低音炮，震感十足，无法忽视。你天生就是舞台的中心——不是因为你刻意求关注，而是因为你的存在本身就在发光。你活在每一个当下，每一次体验都是你人生画布上的一笔。你让人笑、让人放松、让人重新发现生活的乐趣。你是这个世界急需的维生素——纯粹、直接、令人愉悦。', advice: '在享受派对的同时，也要为生命的其他章节留一些能量。不要害怕面对深层的东西——你的内心比你展现出来的丰富得多。培养一些需要长期投入的热爱，你会发现持久的满足感比短暂的快乐更加迷人。' }
+    };
+
+    // ========== Compatibility Data ==========
+    const compatibilityData = {
+        INTJ: [{ type: 'ENFP', desc: '灵魂伴侣级别的互补组合', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ENTP', desc: '智力博弈的最高境界', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ISTP', desc: '高效协作的战术搭档', tag: '最佳搭档', tagCls: 'tag-work' }],
+        INTP: [{ type: 'ENTJ', desc: '梦想家遇上执行者', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'INTP', desc: '两个世界的哲学对谈', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ENTP', desc: '创意碰撞的核反应堆', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ENTJ: [{ type: 'INTP', desc: '战略与逻辑的完美融合', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'INTJ', desc: '双王并立互相敬畏', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ENFJ', desc: '领袖与鼓舞者的黄金组合', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ENTP: [{ type: 'INFJ', desc: '混沌与秩序的致命吸引', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ENTP', desc: '双倍脑洞的冒险旅程', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'INTJ', desc: '辩论对手进化为最佳拍档', tag: '最佳搭档', tagCls: 'tag-work' }],
+        INFJ: [{ type: 'ENTP', desc: '你读懂他们的深度，他们给你自由', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'INFJ', desc: '无需言语的灵魂共振', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ENFJ', desc: '双生火焰共同照亮世界', tag: '最佳搭档', tagCls: 'tag-work' }],
+        INFP: [{ type: 'ENFJ', desc: '他们保护你的柔软，你滋养他们的灵魂', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'INFP', desc: '两个宇宙的诗意对话', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ENTJ', desc: '你给他们温度，他们给你方向', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ENFJ: [{ type: 'INFP', desc: '他们治愈你的疲惫，你照亮他们的方向', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ENFP', desc: '两个小太阳互相充电', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'INFJ', desc: '深度共鸣的治愈系组合', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ENFP: [{ type: 'INTJ', desc: '你融化他们的坚冰，他们给你深度', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ENFP', desc: '双倍创意的烟花盛宴', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'INFJ', desc: '你触发他们的灵感，他们给你锚点', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ISTJ: [{ type: 'ESFP', desc: '稳定与活力的经典组合', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ISFJ', desc: '互相守护的温暖堡垒', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ESTJ', desc: '执行力MAX的黄金搭档', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ISFJ: [{ type: 'ESTP', desc: '你给他们港湾，他们给你冒险', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ISFJ', desc: '两个守护者的温暖共振', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ESFJ', desc: '最具服务精神的梦之队', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ESTJ: [{ type: 'ISFP', desc: '你给他们结构，他们给你色彩', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ESTJ', desc: '目标一致的执行力同盟', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ISTJ', desc: '高效运转的组织机器', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ESFJ: [{ type: 'ISTP', desc: '你给他们温度，他们给你惊喜', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ESFJ', desc: '社交网络的中心连接器', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ISFJ', desc: '服务型领袖的完美搭档', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ISTP: [{ type: 'ESFJ', desc: '你给他们冷静，他们给你温度', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ESTP', desc: '两个行动派的极速组合', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'INTJ', desc: '问题解决者的天作之合', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ISFP: [{ type: 'ESTJ', desc: '你柔软了他们的棱角', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ISFP', desc: '两个安静灵魂的艺术对话', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ESFP', desc: '审美与乐趣的完美结合', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ESTP: [{ type: 'ISFJ', desc: '你带他们冒险，他们给你归属', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ESTP', desc: '肾上腺素双人组', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ISTP', desc: '危机处理的天才组合', tag: '最佳搭档', tagCls: 'tag-work' }],
+        ESFP: [{ type: 'ISTJ', desc: '你照亮他们的生活，他们给你安全', tag: '灵魂契合', tagCls: 'tag-soulmate' }, { type: 'ESFP', desc: '一场永不落幕的派对', tag: '智性碰撞', tagCls: 'tag-friend' }, { type: 'ENFJ', desc: '舞台与幕后的黄金搭档', tag: '最佳搭档', tagCls: 'tag-work' }]
+    };
+
+    // ========== Functions ==========
+    function selectZodiac(btn) {
+        document.querySelectorAll('.zodiac-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedZodiac = btn.dataset.zodiac;
+    }
+
+    function goToStep(step) {
+        if (step === 2) {
+            const name = document.getElementById('userName').value.trim();
+            const birth = document.getElementById('birthDate').value;
+            if (!name) { showToast('请输入你的名字或代号'); return; }
+            if (!birth) { showToast('请选择你的出生日期'); return; }
+            if (!selectedZodiac) { showToast('请选择你的星座'); return; }
+            userData = { name, birth, birthTime: document.getElementById('birthTime').value };
+            currentQuestion = 0;
+            answers = [];
+            renderQuestion();
+        }
+        if (step === 3) {
+            if (answers.length < questions.length) { showToast('请完成所有测试题目'); return; }
+            showLoading();
+            return; // 不再继续执行下面的面板切换，由 showLoading 完成后处理
+        }
+
+        switchPanel(step);
+        currentStep = step;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function switchPanel(step) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel' + step).classList.add('active');
+
+        for (let i = 1; i <= 3; i++) {
+            const dot = document.getElementById('stepDot' + i);
+            dot.classList.remove('active', 'done');
+            if (i < step) dot.classList.add('done');
+            if (i === step) dot.classList.add('active');
+        }
+        for (let i = 1; i <= 2; i++) {
+            const conn = document.getElementById('conn' + i);
+            conn.classList.toggle('done', i < step);
+        }
+    }
+
+    function renderQuestion() {
+        const q = questions[currentQuestion];
+        document.getElementById('questionText').textContent = `${currentQuestion + 1}. ${q.q}`;
+        document.getElementById('quizDimLabel').textContent = q.label;
+        document.getElementById('quizCount').textContent = `${currentQuestion + 1} / ${questions.length}`;
+        document.getElementById('quizProgress').style.width = `${((currentQuestion + 1) / questions.length) * 100}%`;
+
+        // 更新已答/总数
+        const answered = answers.filter(a => a !== undefined).length;
+        document.getElementById('quizAnswered').textContent = `已答 ${answered} / ${questions.length}`;
+
+        const tag = document.getElementById('quizDimensionTag');
+        tag.className = 'quiz-dimension ' + q.cls;
+        tag.textContent = q.label;
+
+        const opts = document.getElementById('quizOptions');
+        opts.innerHTML = '';
+        q.a.forEach((opt, idx) => {
+            const div = document.createElement('div');
+            div.className = 'quiz-option' + (answers[currentQuestion] === idx ? ' selected' : '');
+            div.textContent = `${String.fromCharCode(65 + idx)}. ${opt.text}`;
+            div.onclick = () => {
+                answers[currentQuestion] = idx;
+                document.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
+                div.classList.add('selected');
+                document.getElementById('btnNextQuiz').style.display = 'inline-flex';
+            };
+            opts.appendChild(div);
+        });
+
+        document.getElementById('btnPrevQuiz').style.display = currentQuestion > 0 ? 'inline-flex' : 'none';
+        document.getElementById('btnNextQuiz').style.display = answers[currentQuestion] !== undefined ? 'inline-flex' : 'none';
+        document.getElementById('btnNextQuiz').textContent = currentQuestion === questions.length - 1 ? 'DESTINY AWAITS →' : 'NEXT SCAN →';
+    }
+
+    function nextQuestion() {
+        if (answers[currentQuestion] === undefined) { showToast('请选择一个选项'); return; }
+        if (currentQuestion < questions.length - 1) { currentQuestion++; renderQuestion(); }
+        else { goToStep(3); }
+    }
+
+    function prevQuestion() {
+        if (currentQuestion > 0) { currentQuestion--; renderQuestion(); }
+    }
+
+    function calcMBTI() {
+        let dims = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
+        answers.forEach((ansIdx, qIdx) => {
+            const val = questions[qIdx].a[ansIdx].value;
+            dims[val]++;
+        });
+        const type = (dims.E >= dims.I ? 'E' : 'I') + (dims.S >= dims.N ? 'S' : 'N') +
+                     (dims.T >= dims.F ? 'T' : 'F') + (dims.J >= dims.P ? 'J' : 'P');
+        const scores = {
+            EI: { left: 'E', right: 'I', leftScore: dims.E, rightScore: dims.I, total: dims.E + dims.I },
+            SN: { left: 'S', right: 'N', leftScore: dims.S, rightScore: dims.N, total: dims.S + dims.N },
+            TF: { left: 'T', right: 'F', leftScore: dims.T, rightScore: dims.F, total: dims.T + dims.F },
+            JP: { left: 'J', right: 'P', leftScore: dims.J, rightScore: dims.P, total: dims.J + dims.P }
+        };
+        return { type, scores };
+    }
+
+    function getFortune() {
+        const fortunes = [
+            { love: '大吉', career: '中吉', wealth: '小吉', health: '大吉', social: '中吉', creative: '大吉' },
+            { love: '中吉', career: '大吉', wealth: '中吉', health: '小吉', social: '大吉', creative: '中吉' },
+            { love: '小吉', career: '中吉', wealth: '大吉', health: '中吉', social: '小吉', creative: '大吉' },
+            { love: '大吉', career: '小吉', wealth: '中吉', health: '大吉', social: '中吉', creative: '小吉' },
+            { love: '中吉', career: '大吉', wealth: '大吉', health: '中吉', social: '大吉', creative: '中吉' },
+            { love: '大吉', career: '中吉', wealth: '小吉', health: '中吉', social: '大吉', creative: '大吉' }
+        ];
+        return fortunes[Math.floor(Math.random() * fortunes.length)];
+    }
+
+    function getFortuneClass(level) {
+        if (level === '大吉') return 'fortune-excellent';
+        if (level === '中吉') return 'fortune-great';
+        return 'fortune-good';
+    }
+
+    function showLoading() {
+        const loading = document.getElementById('loading');
+        const msgEl = document.getElementById('loadingMsg');
+        loading.classList.add('active');
+
+        const msgs = [
+            '▸ 正在连接赛博星座数据库...',
+            '▸ 解析MBTI神经网络矩阵...',
+            '▸ 加载量子命理算法...',
+            '▸ 计算星体轨迹干涉参数...',
+            '▸ 运行性格深度解码程序...',
+            '▸ 生成赛博命运报告...',
+            '▸ 校准灵魂数据流...'
+        ];
+
+        let i = 0;
+        msgEl.textContent = msgs[0];
+        const interval = setInterval(() => {
+            i++;
+            if (i < msgs.length) {
+                msgEl.textContent = msgs.slice(0, i + 1).join('\n');
+            }
+        }, 400);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            loading.classList.remove('active');
+            generateResult();
+        }, 3000);
+    }
+
+    function generateResult() {
+        const { type, scores } = calcMBTI();
+        const data = mbtiData[type];
+        const zodiac = zodiacData[selectedZodiac];
+        const fortune = getFortune();
+
+        // MBTI Type
+        document.getElementById('resultType').textContent = type;
+        document.getElementById('resultNickname').textContent = `「${data.nickname}」`;
+
+        // Dimension bars
+        const dimColors = { EI: '#ff6b6b', SN: '#ffd93d', TF: '#6bcb77', JP: '#4d96ff' };
+        let barsHTML = '';
+        for (const [key, val] of Object.entries(scores)) {
+            const leftPct = Math.round((val.leftScore / val.total) * 100);
+            const rightPct = 100 - leftPct;
+            const leftActive = leftPct >= 50;
+            barsHTML += `
+                <div class="dim-bar-item">
+                    <div class="dim-bar-label">
+                        <span style="color:${dimColors[key]};font-weight:700">${val.left} ${leftPct}%</span>
+                        <span style="color:${dimColors[key]};font-weight:700">${rightPct}% ${val.right}</span>
+                    </div>
+                    <div class="dim-bar-track" style="background:linear-gradient(90deg, ${dimColors[key]}33, ${dimColors[key]}33)">
+                        <div class="dim-bar-value" style="width:${leftActive ? leftPct : rightPct}%;background:${dimColors[key]};float:${leftActive ? 'left' : 'right'}"></div>
+                    </div>
+                </div>`;
+        }
+        document.getElementById('dimBars').innerHTML = barsHTML;
+
+        // Description
+        document.getElementById('resultDesc').textContent = data.desc;
+
+        // Horoscope
+        document.getElementById('horoscopeSymbol').textContent = zodiac.symbol;
+        document.getElementById('horoscopeName').textContent = `${zodiac.name} · ${zodiac.cnName}`;
+        document.getElementById('horoscopeDesc').textContent =
+            `${zodiac.cnName}（${zodiac.dates}）· ${zodiac.element}象星座 · ${zodiac.trait}。当${data.nickname}的灵魂与${zodiac.cnName}的能量场产生共振，你将展现出独一无二的人格光谱——在${zodiac.element}象力量的加持下，你的核心特质将被进一步放大和升华。`;
+
+        // Fortune
+        const fortuneLabels = {
+            love: '桃花运', career: '事业运', wealth: '财富运',
+            health: '健康运', social: '人际运', creative: '灵感运'
+        };
+        let fortuneHTML = '';
+        for (const [key, label] of Object.entries(fortuneLabels)) {
+            fortuneHTML += `
+                <div class="fortune-item">
+                    <div class="fortune-item-label">${label}</div>
+                    <div class="fortune-item-value ${getFortuneClass(fortune[key])}">${fortune[key]}</div>
+                </div>`;
+        }
+        document.getElementById('fortuneItems').innerHTML = fortuneHTML;
+
+        // Compatibility
+        const compat = compatibilityData[type];
+        let compatHTML = '';
+        compat.forEach(c => {
+            compatHTML += `
+                <div class="compat-pair">
+                    <span class="compat-type" style="color:var(--cyan)">${c.type}</span>
+                    <span class="compat-desc">${c.desc}</span>
+                    <span class="compat-tag ${c.tagCls}">${c.tag}</span>
+                </div>`;
+        });
+        document.getElementById('compatSection').innerHTML = compatHTML;
+
+        // Tip
+        const tips = [
+            `本报告由赛博算命神经网络 v3.7 生成，结合了${zodiac.cnName}星座能量场数据和MBTI性格光谱分析。所有分析结果仅供娱乐参考，真正的命运永远掌握在你自己的手中。`,
+            `赛博命理分析完成。你的${type}人格与${zodiac.cnName}的能量产生了独特的量子纠缠效应。请记住：这份报告解读的是你的可能性，而非局限性。`,
+            `⚠️ 系统提示：虽然赛博算命系统使用了先进的AI算法，但未来永远有无限可能。${type}的「${data.nickname}」特质加上${zodiac.cnName}的力量，你比任何预测都要精彩。`
+        ];
+        document.getElementById('analysisTip').textContent = tips[Math.floor(Math.random() * tips.length)];
+
+        // Advice
+        document.getElementById('resultAdvice').textContent = data.advice;
+
+        // 切换到结果面板（不再调用 goToStep 避免重复触发 showLoading）
+        switchPanel(3);
+        currentStep = 3;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function restart() {
+        selectedZodiac = null;
+        answers = [];
+        currentQuestion = 0;
+        document.getElementById('userName').value = '';
+        document.getElementById('birthDate').value = '';
+        document.getElementById('birthTime').value = '';
+        document.querySelectorAll('.zodiac-btn').forEach(b => b.classList.remove('selected'));
+        goToStep(1);
+    }
+
+    function shareResult() {
+        const type = document.getElementById('resultType').textContent;
+        const nickname = document.getElementById('resultNickname').textContent;
+        const text = `🔮 赛博算命结果\n我是 ${type} ${nickname}\n快来测测你的赛博命运！`;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => showToast('命运代码已复制到剪贴板'));
+        } else {
+            showToast('复制失败，请手动分享');
+        }
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ========== Particle Background ==========
+    (function initCanvas() {
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let w, h;
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.vx = (Math.random() - 0.5) * 0.3;
+                this.vy = (Math.random() - 0.5) * 0.3;
+                this.size = Math.random() * 2;
+                this.alpha = Math.random() * 0.5 + 0.1;
+                this.color = Math.random() > 0.7 ? 'rgba(255,0,229,' : 'rgba(0,240,255,';
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > w || this.y < 0 || this.y > h) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color + this.alpha + ')';
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+        function animate() {
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => { p.update(); p.draw(); });
+
+            // Draw connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(0,240,255,${0.08 * (1 - dist / 120)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    })();
+    </script>
+</body>
+</html>
