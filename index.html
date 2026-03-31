@@ -241,6 +241,8 @@
         .form-input, .form-select {
             width: 100%;
             padding: 14px 16px;
+            max-width: 100%;
+            box-sizing: border-box;
             background: rgba(0, 240, 255, 0.05);
             border: 1px solid rgba(0, 240, 255, 0.2);
             border-radius: 2px;
@@ -262,6 +264,40 @@
             cursor: pointer;
             opacity: 1;
         }
+
+        /* ========== Music Toggle ========== */
+        .music-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 500;
+            width: 44px;
+            height: 44px;
+            background: rgba(10, 10, 25, 0.7);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        .music-toggle:hover {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+        }
+        .music-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--cyan);
+            transition: fill 0.3s ease;
+        }
+        .music-toggle.muted svg { fill: var(--text-dim); }
+        .music-toggle .muted-line {
+            display: none;
+        }
+        .music-toggle.muted .muted-line { display: block; }
         .form-select option {
             background: #1a1a2e;
             color: var(--text-primary);
@@ -271,6 +307,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
+            overflow: hidden;
         }
 
         .zodiac-grid {
@@ -697,10 +734,13 @@
         .toast.show { transform: translateX(-50%) translateY(0); }
 
         /* ========== Responsive ========== */
+        @media (max-width: 768px) {
+            .input-row { grid-template-columns: 1fr; gap: 12px; }
+        }
         @media (max-width: 600px) {
             .container { padding: 16px; }
             .title-section { padding: 30px 0 20px; }
-            .input-row { grid-template-columns: 1fr; }
+            .input-row { grid-template-columns: 1fr; gap: 12px; }
             .zodiac-grid { grid-template-columns: repeat(3, 1fr); }
             .dimension-bars { grid-template-columns: 1fr; }
             .fortune-items { grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -744,6 +784,15 @@
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
+
+    <!-- 音乐控制按钮 -->
+    <div class="music-toggle" id="musicToggle" onclick="toggleMusic()" title="音乐开关">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8.5v7a4.49 4.49 0 002.5-3.5zM14 3.23v2.06a6.51 6.51 0 010 13.42v2.06A8.5 8.5 0 0014 3.23z"/>
+            <line class="muted-line" x1="1" y1="1" x2="23" y2="23" stroke="#ff4466" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+    </div>
+
     <div class="scanline"></div>
     <div class="grid-overlay"></div>
 
@@ -1502,6 +1551,141 @@
         }
         animate();
     })();
+
+    // ========== Background Music (Web Audio API) ==========
+    let audioCtx = null;
+    let masterGain = null;
+    let isMuted = false;
+    let musicStarted = false;
+
+    function initAudio() {
+        if (musicStarted) return;
+        musicStarted = true;
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.15;
+        masterGain.connect(audioCtx.destination);
+
+        // 低频无人机音 - 神秘基底
+        createDrone(55, 'sine', 0.3);      // A1 深沉基底
+        createDrone(82.41, 'sine', 0.15);   // E2 和声
+        createDrone(110, 'sine', 0.1);      // A2 泛音
+
+        // 高频泛音层 - 空灵感
+        createPad(440, 'sine', 0.04);      // A4
+        createPad(523.25, 'sine', 0.03);   // C5
+        createPad(659.25, 'sine', 0.025);  // E5
+
+        // 随机闪烁音符 - 星空感
+        setInterval(() => {
+            if (isMuted) return;
+            playTwinkle();
+        }, 2000 + Math.random() * 4000);
+    }
+
+    function createDrone(freq, type, vol) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = vol;
+
+        // 缓慢LFO调制音量，产生呼吸感
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.05 + Math.random() * 0.1;
+        lfoGain.gain.value = vol * 0.4;
+        lfo.connect(lfoGain);
+        lfoGain.connect(gain.gain);
+        lfo.start();
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start();
+    }
+
+    function createPad(freq, type, vol) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = 0;
+
+        // 缓慢淡入
+        gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 4);
+
+        // LFO 频率微调，产生飘忽感
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.03 + Math.random() * 0.05;
+        lfoGain.gain.value = freq * 0.003;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+        lfo.start();
+
+        // LFO 音量呼吸
+        const lfo2 = audioCtx.createOscillator();
+        const lfo2Gain = audioCtx.createGain();
+        lfo2.type = 'sine';
+        lfo2.frequency.value = 0.08 + Math.random() * 0.06;
+        lfo2Gain.gain.value = vol * 0.5;
+        lfo2.connect(lfo2Gain);
+        lfo2Gain.connect(gain.gain);
+        lfo2.start();
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start();
+    }
+
+    function playTwinkle() {
+        // 五声音阶随机音符，更具东方神秘感
+        const scale = [440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66];
+        const freq = scale[Math.floor(Math.random() * scale.length)];
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = 0;
+
+        const now = audioCtx.currentTime;
+        gain.gain.linearRampToValueAtTime(0.03, now + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 3 + Math.random() * 2);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 5);
+    }
+
+    function toggleMusic() {
+        const btn = document.getElementById('musicToggle');
+        if (!musicStarted) {
+            initAudio();
+            isMuted = false;
+            btn.classList.remove('muted');
+            return;
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        isMuted = !isMuted;
+        masterGain.gain.linearRampToValueAtTime(isMuted ? 0 : 0.15, audioCtx.currentTime + 0.3);
+        btn.classList.toggle('muted', isMuted);
+    }
+
+    // 首次用户交互时启动音频（浏览器自动播放策略）
+    ['click', 'touchstart', 'keydown'].forEach(evt => {
+        document.addEventListener(evt, function init() {
+            initAudio();
+            ['click', 'touchstart', 'keydown'].forEach(e =>
+                document.removeEventListener(e, init));
+        }, { once: false });
+    });
     </script>
 </body>
 </html>
