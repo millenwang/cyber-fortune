@@ -79,6 +79,9 @@
             margin: 0 auto;
             padding: 20px;
             min-height: 100vh;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         /* ========== Glitch Title ========== */
@@ -260,10 +263,24 @@
         .form-input::placeholder { color: var(--text-dim); opacity: 0.5; }
 
         /* 日期选择器图标高亮 */
+        input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(0.85) sepia(1) hue-rotate(120deg) saturate(4);
             cursor: pointer;
             opacity: 1;
+            flex-shrink: 0;
+            min-width: 20px;
+        }
+        /* Firefox 日期选择器 */
+        input[type="date"]::-webkit-date-and-time-value {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
         }
 
         /* ========== Music Toggle ========== */
@@ -735,7 +752,7 @@
         .toast.show { transform: translateX(-50%) translateY(0); }
 
         /* ========== Responsive ========== */
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
             .input-row { grid-template-columns: 1fr; gap: 12px; }
         }
         @media (max-width: 600px) {
