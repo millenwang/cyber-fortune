@@ -267,19 +267,23 @@
         }
         .form-input::placeholder { color: var(--text-dim); opacity: 0.5; }
 
-        /* 日期选择器图标高亮 */
-        input[type="date"] {
-            min-height: 48px;
+        /* 日期选择器 */
+        .date-picker-wrapper {
+            position: relative;
+            width: 100%;
         }
-        input[type="date"]::-webkit-date-and-time-value {
-            text-align: left;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(0.85) sepia(1) hue-rotate(120deg) saturate(4);
+        .date-display {
+            color: var(--text-dim);
+            opacity: 0.5;
             cursor: pointer;
+            pointer-events: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .date-display.has-value {
+            color: var(--text-primary);
             opacity: 1;
-            flex-shrink: 0;
-            min-width: 20px;
         }
         /* Firefox 日期选择器 */
         input[type="date"]::-webkit-date-and-time-value {
@@ -866,10 +870,16 @@
 
                 <div class="form-group">
                     <label class="form-label">出生日期</label>
-                    <div class="input-row">
-                        <input type="date" class="form-input" id="birthDate" placeholder="选择出生日期">
-                        <select class="form-select" id="birthTime">
-                            <option value="">选择出生时段</option>
+                    <div class="date-picker-wrapper">
+                        <input type="date" id="birthDate" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer;">
+                        <div class="form-input date-display" id="dateDisplay">选择出生日期</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">出生时段（可选）</label>
+                    <select class="form-select" id="birthTime">
+                        <option value="">选择出生时段</option>
                             <option value="dawn">黎明 (05:00-07:00)</option>
                             <option value="morning">上午 (07:00-11:00)</option>
                             <option value="noon">中午 (11:00-13:00)</option>
@@ -878,8 +888,7 @@
                             <option value="night">夜晚 (19:00-23:00)</option>
                             <option value="midnight">深夜 (23:00-01:00)</option>
                             <option value="wee">凌晨 (01:00-05:00)</option>
-                        </select>
-                    </div>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -926,7 +935,7 @@
 
                 <div class="btn-group">
                     <button class="btn-cyber" onclick="goToStep(2)">
-                        开始测试 →
+                        翻开星簿 →
                     </button>
                 </div>
             </div>
@@ -1251,7 +1260,7 @@
         if (step === 2) {
             const name = document.getElementById('userName').value.trim();
             const birth = document.getElementById('birthDate').value;
-            if (!name) { showToast('请输入你的名字或代号'); return; }
+            if (!name) { showToast('请输入姓名或昵称'); return; }
             if (!birth) { showToast('请选择你的出生日期'); return; }
             if (!selectedZodiac) { showToast('请选择你的星座'); return; }
             userData = { name, birth, birthTime: document.getElementById('birthTime').value };
@@ -1575,19 +1584,26 @@
         animate();
     })();
 
-    // ========== Date Picker 默认定位到2000年 ==========
+    // ========== Date Picker 默认定位到2000年 + 显示同步 ==========
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('birthDate');
-        if (dateInput) {
+        const dateDisplay = document.getElementById('dateDisplay');
+        if (dateInput && dateDisplay) {
             // 点击时先临时设置值为2000-01-01让日历定位到该年月
             dateInput.addEventListener('click', function() {
                 if (!this.value) {
                     this.value = '2000-01-01';
                 }
             });
-            // 如果用户清空了选择，失焦时清除默认值
+            // 选择日期后同步显示
             dateInput.addEventListener('change', function() {
-                // 保留用户选择的值，不做干预
+                if (this.value) {
+                    dateDisplay.textContent = this.value;
+                    dateDisplay.classList.add('has-value');
+                } else {
+                    dateDisplay.textContent = '选择出生日期';
+                    dateDisplay.classList.remove('has-value');
+                }
             });
         }
     });
